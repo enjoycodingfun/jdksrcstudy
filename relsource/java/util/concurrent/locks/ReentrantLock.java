@@ -202,7 +202,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * Performs lock.  Try immediate barge, backing up to normal
          * acquire on failure.
          */
+        //抢占锁
         final void lock() {
+            //先尝试使用cas的方式获取锁，如果获取不到就走acquire
             if (compareAndSetState(0, 1))
                 setExclusiveOwnerThread(Thread.currentThread());
             else
@@ -230,21 +232,29 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          */
         protected final boolean tryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
+            //获取当前锁被持有的状态
             int c = getState();
+            //没有被线程持有
             if (c == 0) {
+                //如果等待队列中没有其他线程且通过cas获取了锁，就将排它锁的拥有者设置为当前线程并返回true
                 if (!hasQueuedPredecessors() &&
                     compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
                 }
             }
+            //如果有被线程持有,且持有的是本线程，说明是重入
             else if (current == getExclusiveOwnerThread()) {
+                //增加state的数值
                 int nextc = c + acquires;
+                //如果这个时候小于0了，说明超过了最大可重入次数，注意(Integer.maxValue+1就会小于0)，抛出异常
                 if (nextc < 0)
                     throw new Error("Maximum lock count exceeded");
+                //更新当前state的值并返回true
                 setState(nextc);
                 return true;
             }
+            //如果当前锁被其他线程持有了，那直接返回false，获取锁失败
             return false;
         }
     }
