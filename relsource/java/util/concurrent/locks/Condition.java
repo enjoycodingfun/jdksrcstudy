@@ -57,7 +57,7 @@ import java.util.Date;
  * is that it <em>atomically</em> releases the associated lock and
  * suspends the current thread, just like {@code Object.wait}.
  *
- * <p>A {@code Condition} instance is intrinsically bound to a lock.
+ * <p>A {@code Condition} instance is intrinsically（本质上） bound to a lock.
  * To obtain a {@code Condition} instance for a particular {@link Lock}
  * instance use its {@link Lock#newCondition newCondition()} method.
  *
@@ -118,11 +118,14 @@ import java.util.Date;
  * <p>A {@code Condition} implementation can provide behavior and semantics
  * that is
  * different from that of the {@code Object} monitor methods, such as
+ * //可以保证唤醒顺序
  * guaranteed ordering for notifications, or not requiring a lock to be held
  * when performing notifications.
  * If an implementation provides such specialized semantics then the
  * implementation must document those semantics.
  *
+ * 注意Condition实例也是普通的对象，其他对象有的wait和notify方法他也有，但是这些方法和
+ * Condition的Lock，await方法没有关联，不要迷惑掉
  * <p>Note that {@code Condition} instances are just normal objects and can
  * themselves be used as the target in a {@code synchronized} statement,
  * and can have their own monitor {@link Object#wait wait} and
@@ -147,6 +150,7 @@ import java.util.Date;
  * the state predicate that is being waited for.  An implementation is
  * free to remove the possibility of spurious wakeups but it is
  * recommended that applications programmers always assume that they can
+ * 通常在循环中调用等待方法
  * occur and so always wait in a loop.
  *
  * <p>The three forms of condition waiting

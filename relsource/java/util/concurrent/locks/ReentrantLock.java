@@ -130,6 +130,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             final Thread current = Thread.currentThread();
             int c = getState();
             if (c == 0) {
+                // 这里没有对阻塞队列进行判断
                 if (compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
@@ -146,14 +147,18 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         }
 
         protected final boolean tryRelease(int releases) {
+            //给当前state减去要释放的参数
             int c = getState() - releases;
+            //如果当前线程已经不是锁的持有者就抛出异常
             if (Thread.currentThread() != getExclusiveOwnerThread())
                 throw new IllegalMonitorStateException();
             boolean free = false;
             if (c == 0) {
+                //锁成功释放掉,就直接设置当前排它锁的拥有者为null,释放成功标志位置为true
                 free = true;
                 setExclusiveOwnerThread(null);
             }
+            //设置state为现在的c
             setState(c);
             return free;
         }
@@ -205,6 +210,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         //抢占锁
         final void lock() {
             //先尝试使用cas的方式获取锁，如果获取不到就走acquire
+            // 2. 和公平锁相比，这里会直接先进行一次CAS，成功就返回了
             if (compareAndSetState(0, 1))
                 setExclusiveOwnerThread(Thread.currentThread());
             else
@@ -237,6 +243,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             //没有被线程持有
             if (c == 0) {
                 //如果等待队列中没有其他线程且通过cas获取了锁，就将排它锁的拥有者设置为当前线程并返回true
+                // 1. 和非公平锁相比，这里多了一个判断：是否有线程在等待hasQueuedPredecessors()
                 if (!hasQueuedPredecessors() &&
                     compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
@@ -454,7 +461,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
 
     /**
      * Attempts to release this lock.
-     *
+     * 尝试释放锁：如果当前线程是持有锁就将计数减一，如果当前已经是0了说明锁被释放了，如果当前线程不是
+     * 锁的拥有者就抛异常
      * <p>If the current thread is the holder of this lock then the hold
      * count is decremented.  If the hold count is now zero then the lock
      * is released.  If the current thread is not the holder of this
