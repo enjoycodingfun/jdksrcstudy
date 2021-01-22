@@ -45,6 +45,7 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * zero due to invocations of the {@link #countDown} method, after which
  * all waiting threads are released and any subsequent invocations of
  * {@link #await await} return immediately.  This is a one-shot phenomenon
+ * 计数器不能重置，如果需要重置，请考虑使用CyclicBarrier
  * -- the count cannot be reset.  If you need a version that resets the
  * count, consider using a {@link CyclicBarrier}.
  *
@@ -156,11 +157,12 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 public class CountDownLatch {
     /**
      * Synchronization control For CountDownLatch.
+     * 这里面的计数器count使用的是AQS的state
      * Uses AQS state to represent count.
      */
     private static final class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = 4982264981922014374L;
-
+        //构造方法来使count == state
         Sync(int count) {
             setState(count);
         }
@@ -168,11 +170,11 @@ public class CountDownLatch {
         int getCount() {
             return getState();
         }
-
+        //查看当前的state状态是否等于0，等于返回1，不等于返回-1
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
-
+        // 这个方法很简单，用自旋的方法实现 state 减 1
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
             for (;;) {
@@ -201,9 +203,10 @@ public class CountDownLatch {
     }
 
     /**
+     * 调用await方法会使调用线程阻塞知道latch减为0或者线程被中断
      * Causes the current thread to wait until the latch has counted down to
      * zero, unless the thread is {@linkplain Thread#interrupt interrupted}.
-     *
+     *如果当前count是0，该方法会立即返回
      * <p>If the current count is zero then this method returns immediately.
      *
      * <p>If the current count is greater than zero then the current
@@ -284,7 +287,7 @@ public class CountDownLatch {
      * <p>If the current count is greater than zero then it is decremented.
      * If the new count is zero then all waiting threads are re-enabled for
      * thread scheduling purposes.
-     *
+     *如果当前state值已经等于0了，就没有任何事情发生
      * <p>If the current count equals zero then nothing happens.
      */
     public void countDown() {
