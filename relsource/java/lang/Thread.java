@@ -911,6 +911,7 @@ class Thread implements Runnable {
      * @revised 6.0
      * @spec JSR-51
      */
+    // Thread 类中的实例方法，用于设置一个线程的中断状态为 true
     public void interrupt() {
         if (this != Thread.currentThread())
             checkAccess();
@@ -943,6 +944,10 @@ class Thread implements Runnable {
      * @see #isInterrupted()
      * @revised 6.0
      */
+    //判断当前线程是否被中断，同时会清除中断标志位
+    // Thread 中的静态方法，检测调用这个方法的线程是否已经中断
+// 注意：这个方法返回中断状态的同时，会将此线程的中断状态重置为 false
+// 所以，如果我们连续调用两次这个方法的话，第二次的返回值肯定就是 false 了
     public static boolean interrupted() {
         return currentThread().isInterrupted(true);
     }
@@ -960,6 +965,7 @@ class Thread implements Runnable {
      * @see     #interrupted()
      * @revised 6.0
      */
+    // Thread 类中的实例方法，持有线程实例引用即可检测线程中断状态
     public boolean isInterrupted() {
         return isInterrupted(false);
     }

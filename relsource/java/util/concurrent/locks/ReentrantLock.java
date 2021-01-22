@@ -47,7 +47,7 @@ import java.util.Collection;
  * successfully locking, but not yet unlocking it. A thread invoking
  * {@code lock} will return, successfully acquiring the lock, when
  * the lock is not owned by another thread. The method will return
- * immediately if the current thread already owns the lock. This can
+ * immediately if the current thread already owns the lock. This can7
  * be checked using methods {@link #isHeldByCurrentThread}, and {@link
  * #getHoldCount}.
  *

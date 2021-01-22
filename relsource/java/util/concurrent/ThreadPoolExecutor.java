@@ -78,7 +78,10 @@ import java.util.*;
  * according to the bounds set by
  * corePoolSize (see {@link #getCorePoolSize}) and
  * maximumPoolSize (see {@link #getMaximumPoolSize}).
- *
+ *==============
+ * 我的注释：当新任务提交的时候，如果运行的线程数小于核心线程数的时候，哪怕其他运行线程是空闲的也会直接创建一个
+ * 新的线程来执行任务。当你设置核心线程数和最大线程数相同时，就创建了一个固定线程的线程池
+ * =============
  * When a new task is submitted in method {@link #execute(Runnable)},
  * and fewer than corePoolSize threads are running, a new thread is
  * created to handle the request, even if other worker threads are

@@ -786,6 +786,7 @@ public abstract class AbstractQueuedSynchronizer
         node.thread = null;
 
         // Skip cancelled predecessors
+        // 找一个合适的前驱。其实就是将它前面的队列中已经取消的节点都”请出去“
         Node pred = node.prev;
         //又是等待状态，大于0说明前驱取消了争抢锁，继续往前遍历
         while (pred.waitStatus > 0)
@@ -1000,10 +1001,16 @@ public abstract class AbstractQueuedSynchronizer
                 }
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
+                    /*
+                    // 就是这里了，一旦异常，马上结束这个方法，抛出异常。
+                    // 这里不再只是标记这个方法的返回值代表中断状态(与acquireQueued相比)
+                    // 而是直接抛出异常，而且外层也不捕获，一直往外抛到 lockInterruptibly
+                     */
                     throw new InterruptedException();
             }
         } finally {
             if (failed)
+                // 如果通过 InterruptedException 异常出去，那么 failed 就是 true 了
                 cancelAcquire(node);
         }
     }
