@@ -341,6 +341,8 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      */
     static final int hash(Object key) {
         int h;
+        // h = key.hashCode() 为第一步 取hashCode值
+        // h ^ (h >>> 16)  为第二步 高位参与运算
         return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
     }
 
