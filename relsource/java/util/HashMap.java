@@ -632,25 +632,32 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                    boolean evict) {
         Node<K,V>[] tab; Node<K,V> p; int n, i;
+        // 步骤①：tab为空则创建
         if ((tab = table) == null || (n = tab.length) == 0)
             n = (tab = resize()).length;
+        // 步骤②：计算index，并对null做处理
         if ((p = tab[i = (n - 1) & hash]) == null)
             tab[i] = newNode(hash, key, value, null);
         else {
             Node<K,V> e; K k;
+            // 步骤③：节点key存在，直接覆盖value
             if (p.hash == hash &&
                 ((k = p.key) == key || (key != null && key.equals(k))))
                 e = p;
+                // 步骤④：判断该链为红黑树
             else if (p instanceof TreeNode)
                 e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
             else {
+                // 步骤⑤：该链为链表
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
                         p.next = newNode(hash, key, value, null);
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                            //链表长度大于8转换为红黑树进行处理
                             treeifyBin(tab, hash);
                         break;
                     }
+                    // key已经存在直接覆盖value
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
                         break;
@@ -666,6 +673,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             }
         }
         ++modCount;
+        // 步骤⑥：超过最大容量 就扩容
         if (++size > threshold)
             resize();
         afterNodeInsertion(evict);
@@ -681,13 +689,15 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      *
      * @return the table
      */
-    final Node<K,V>[] resize() {
-        Node<K,V>[] oldTab = table;
+    final Node<K,V>[] resize() {//传入新的容量
+        Node<K,V>[] oldTab = table;//引用扩容前的Entry数组
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
         int newCap, newThr = 0;
         if (oldCap > 0) {
+            //扩容前的数组大小如果已经达到最大(2^30)了
             if (oldCap >= MAXIMUM_CAPACITY) {
+                //修改阈值为int的最大值(2^31-1)，这样以后就不会扩容了
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
             }
