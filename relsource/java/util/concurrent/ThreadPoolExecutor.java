@@ -97,7 +97,7 @@ import java.util.*;
  * #setMaximumPoolSize}. </dd>
  *
  * <dt>On-demand construction</dt>
- *
+ *默认情况唉，线程的创建并启动是在有任务进来的时候，但是这个可以通过下面的方法进行重写
  * <dd>By default, even core threads are initially created and
  * started only when new tasks arrive, but this can be overridden
  * dynamically using method {@link #prestartCoreThread} or {@link
@@ -381,6 +381,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * that workerCount is 0 (which sometimes entails a recheck -- see
      * below).
      */
+    //线程池的运行状态 (runState) 和线程池内有效线程的数量 (workerCount)，高3位保存runState，低29位保存workerCount，两个变量之间互不干扰
     private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
     private static final int COUNT_BITS = Integer.SIZE - 3;
     private static final int CAPACITY   = (1 << COUNT_BITS) - 1;
@@ -393,9 +394,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     private static final int TERMINATED =  3 << COUNT_BITS;
 
     // Packing and unpacking ctl
-    private static int runStateOf(int c)     { return c & ~CAPACITY; }
-    private static int workerCountOf(int c)  { return c & CAPACITY; }
-    private static int ctlOf(int rs, int wc) { return rs | wc; }
+    private static int runStateOf(int c)     { return c & ~CAPACITY; }//计算当前运行状态
+    private static int workerCountOf(int c)  { return c & CAPACITY; }//计算当前线程数量
+    private static int ctlOf(int rs, int wc) { return rs | wc; }//通过状态和线程数生成ctl
 
     /*
      * Bit field accessors that don't require unpacking ctl.
@@ -606,9 +607,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         private static final long serialVersionUID = 6138294804551838833L;
 
         /** Thread this worker is running in.  Null if factory fails. */
-        final Thread thread;
+        final Thread thread;//Worker持有的线程
         /** Initial task to run.  Possibly null. */
-        Runnable firstTask;
+        Runnable firstTask;//初始化的任务，可以为null
         /** Per-thread task counter */
         volatile long completedTasks;
 
