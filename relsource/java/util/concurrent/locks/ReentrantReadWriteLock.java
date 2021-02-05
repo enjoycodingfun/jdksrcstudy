@@ -389,6 +389,12 @@ public class ReentrantReadWriteLock
              *    queue policy allows it. If so, update state
              *    and set owner.
              */
+            /*
+           * Walkthrough:
+           * 1. 如果读状态不为0或者写状态不为0并且写线程不是自己，返回false
+           * 2. 如果已经超过了可重入的计数值MAX_COUNT，就会返回false
+          * 3. 如果该线程是可重入获取或队列策略允许，则该线程有资格获得锁定;同时更新所有者和写锁状态值
+         */
             Thread current = Thread.currentThread();
             int c = getState();
             int w = exclusiveCount(c);
