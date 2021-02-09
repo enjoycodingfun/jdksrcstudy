@@ -97,7 +97,7 @@ import java.util.*;
  * #setMaximumPoolSize}. </dd>
  *
  * <dt>On-demand construction</dt>
- *默认情况唉，线程的创建并启动是在有任务进来的时候，但是这个可以通过下面的方法进行重写
+ *默认情况，线程的创建并启动是在有任务进来的时候，但是这个可以通过下面的方法进行重写
  * <dd>By default, even core threads are initially created and
  * started only when new tasks arrive, but this can be overridden
  * dynamically using method {@link #prestartCoreThread} or {@link
@@ -132,6 +132,8 @@ import java.util.*;
  * changed dynamically using method {@link #setKeepAliveTime(long,
  * TimeUnit)}.  Using a value of {@code Long.MAX_VALUE} {@link
  * TimeUnit#NANOSECONDS} effectively disables idle threads from ever
+ * 默认情况下线程回收策略只在线程数大于核心线程数的时候起作用，但是通过allowCoreThreadTimeOut参数
+ * 可以调整是否需要对核心线程进行回收
  * terminating prior to shut down. By default, the keep-alive policy
  * applies only when there are more than corePoolSize threads. But
  * method {@link #allowCoreThreadTimeOut(boolean)} can be used to
@@ -139,7 +141,7 @@ import java.util.*;
  * keepAliveTime value is non-zero. </dd>
  *
  * <dt>Queuing</dt>
- *
+ *任意的阻塞队列都可以用来传递和持有提交的任务
  * <dd>Any {@link BlockingQueue} may be used to transfer and hold
  * submitted tasks.  The use of this queue interacts with pool sizing:
  *
