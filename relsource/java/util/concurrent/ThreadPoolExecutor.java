@@ -175,6 +175,7 @@ import java.util.*;
  * possibility of unbounded thread growth when commands continue to
  * arrive on average faster than they can be processed.  </li>
  *
+ * 无界队列
  * <li><em> Unbounded queues.</em> Using an unbounded queue (for
  * example a {@link LinkedBlockingQueue} without a predefined
  * capacity) will cause new tasks to wait in the queue when all
@@ -187,7 +188,7 @@ import java.util.*;
  * transient bursts of requests, it admits the possibility of
  * unbounded work queue growth when commands continue to arrive on
  * average faster than they can be processed.  </li>
- *
+ *有界队列
  * <li><em>Bounded queues.</em> A bounded queue (for example, an
  * {@link ArrayBlockingQueue}) helps prevent resource exhaustion when
  * used with finite maximumPoolSizes, but can be more difficult to
@@ -243,7 +244,7 @@ import java.util.*;
  * capacity or queuing policies. </dd>
  *
  * <dt>Hook methods</dt>
- *
+ *下面是一些钩子方法
  * <dd>This class provides {@code protected} overridable
  * {@link #beforeExecute(Thread, Runnable)} and
  * {@link #afterExecute(Runnable, Throwable)} methods that are called
