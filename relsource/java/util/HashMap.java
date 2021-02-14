@@ -575,12 +575,15 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (first = tab[(n - 1) & hash]) != null) {
+            // 判断第一个节点是不是就是需要的
             if (first.hash == hash && // always check first node
                 ((k = first.key) == key || (key != null && key.equals(k))))
                 return first;
             if ((e = first.next) != null) {
                 if (first instanceof TreeNode)
+                    // 判断是否是红黑树
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
+                // 链表遍历
                 do {
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
@@ -735,17 +738,23 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         @SuppressWarnings({"rawtypes","unchecked"})
         // 用新的数组大小初始化新的数组
             Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
-        table = newTab;
+        table = newTab;// 如果是初始化数组，到这里就结束了，返回 newTab 即可
         if (oldTab != null) {
+            // 开始遍历原数组，进行数据迁移。
             for (int j = 0; j < oldCap; ++j) {
                 Node<K,V> e;
                 if ((e = oldTab[j]) != null) {
                     oldTab[j] = null;
                     if (e.next == null)
+                        // 如果该数组位置上只有单个元素，那就简单了，简单迁移这个元素就可以了
                         newTab[e.hash & (newCap - 1)] = e;
                     else if (e instanceof TreeNode)
+                        // 如果是红黑树，具体我们就不展开了
                         ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
                     else { // preserve order
+                        // 这块是处理链表的情况，
+                        // 需要将此链表拆成两个链表，放到新的数组中，并且保留原来的先后顺序
+                        // loHead、loTail 对应一条链表，hiHead、hiTail 对应另一条链表，代码还是比较简单的
                         Node<K,V> loHead = null, loTail = null;
                         Node<K,V> hiHead = null, hiTail = null;
                         Node<K,V> next;
@@ -768,9 +777,11 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                         } while ((e = next) != null);
                         if (loTail != null) {
                             loTail.next = null;
+                            // 第一条链表
                             newTab[j] = loHead;
                         }
                         if (hiTail != null) {
+                            // 第二条链表的新的位置是 j + oldCap，这个很好理解
                             hiTail.next = null;
                             newTab[j + oldCap] = hiHead;
                         }
