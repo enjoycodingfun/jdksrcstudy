@@ -39,10 +39,14 @@ import java.util.Collection;
 import java.util.Queue;
 
 /**
+ * 该队列支持当获取元素的时候等待直到队列非空，当存储元素的时候等待直到队列有空间
  * A {@link java.util.Queue} that additionally supports operations
  * that wait for the queue to become non-empty when retrieving an
  * element, and wait for space to become available in the queue when
  * storing an element.
+ * ===================================================================
+ *该队列的方法有下面四种形式，参考https://docs.oracle.com/javase/8/docs/api/
+ * ===================================================================
  *
  * <p>{@code BlockingQueue} methods come in four forms, with different ways
  * of handling operations that cannot be satisfied immediately, but may be
@@ -85,17 +89,31 @@ import java.util.Queue;
  *  </tr>
  * </table>
  *
+ * ========================================================================
+ *该队列在add，out或offer的时候不接收null值，null被用来作为poll对象没有结果时候的返回值
+ * ========================================================================
+ *
  * <p>A {@code BlockingQueue} does not accept {@code null} elements.
  * Implementations throw {@code NullPointerException} on attempts
  * to {@code add}, {@code put} or {@code offer} a {@code null}.  A
  * {@code null} is used as a sentinel value to indicate failure of
  * {@code poll} operations.
  *
+ * =============================================================================
+ * 该队列可能是有界的，任何时刻当当前剩余容量不足时无法再添加元素，没有指定固定容量的情况下，容量的
+ * 大小默认为Integer.MAX_VALUE
+ * =============================================================================
+ *
  * <p>A {@code BlockingQueue} may be capacity bounded. At any given
  * time it may have a {@code remainingCapacity} beyond which no
  * additional elements can be {@code put} without blocking.
  * A {@code BlockingQueue} without any intrinsic capacity constraints always
  * reports a remaining capacity of {@code Integer.MAX_VALUE}.
+ *
+ * ===========================================================================
+ * 该队列的实现类通常被用在生产者消费者队列下，但是也支持Collection接口，比如用来随机去除
+ * 一个元素，但是这个操作通常不够高效，偶尔使用下
+ * ===========================================================================
  *
  * <p>{@code BlockingQueue} implementations are designed to be used
  * primarily for producer-consumer queues, but additionally support
@@ -104,6 +122,12 @@ import java.util.Queue;
  * {@code remove(x)}. However, such operations are in general
  * <em>not</em> performed very efficiently, and are intended for only
  * occasional use, such as when a queued message is cancelled.
+ *
+ * =============================================================================
+ * 该队列的实现是线程安全的，所有排队方法都是通过内部锁或者其他并发控制方式来保证线程安全的，
+ * 但是在执行集合操作，比如addAll，containsAll，retainAll，removeAll的时候不能保证并发安全
+ * ，比如调用addAll方法的时候可能会在添加某些元素之后失败并抛出异常
+ * ============================================================================
  *
  * <p>{@code BlockingQueue} implementations are thread-safe.  All
  * queuing methods achieve their effects atomically using internal
@@ -123,6 +147,10 @@ import java.util.Queue;
  * <em>end-of-stream</em> or <em>poison</em> objects, that are
  * interpreted accordingly when taken by consumers.
  *
+ *===============================================================
+ * 下面是一个使用示例，基于传统的生产者消费者模式，注意blockingqueue是可以被多个生产者消费者安全
+ * 的使用的
+ * ================================================================
  * <p>
  * Usage example, based on a typical producer-consumer scenario.
  * Note that a {@code BlockingQueue} can safely be used with multiple

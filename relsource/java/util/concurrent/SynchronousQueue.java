@@ -42,6 +42,11 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 
 /**
+ * ==============================
+ * 一种阻塞队列，每一个插入操作必须等待一个关联的另一个线程的移除操作，反之亦然。该队列不含有任何容量，甚至1都不行，没有
+ * 对应的移除的情况下不能插入和peek，也无法迭代，该队列也是一个空集合
+ * ==============================
+ *
  * A {@linkplain BlockingQueue blocking queue} in which each insert
  * operation must wait for a corresponding remove operation by another
  * thread, and vice versa.  A synchronous queue does not have any
@@ -179,6 +184,12 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
          *         the caller can distinguish which of these occurred
          *         by checking Thread.interrupted.
          */
+        // 从方法名上大概就知道，这个方法用于转移元素，从生产者手上转到消费者手上
+        // 也可以被动地，消费者调用这个方法来从生产者手上取元素
+        // 第一个参数 e 如果不是 null，代表场景为：将元素从生产者转移给消费者
+        // 如果是 null，代表消费者等待生产者提供元素，然后返回值就是相应的生产者提供的元素
+        // 第二个参数代表是否设置超时，如果设置超时，超时时间是第三个参数的值
+        // 返回值如果是 null，代表超时，或者中断。具体是哪个，可以通过检测中断状态得到。
         abstract E transfer(E e, boolean timed, long nanos);
     }
 
@@ -206,7 +217,8 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      * rather than to use timed park. A rough estimate suffices.
      */
     static final long spinForTimeoutThreshold = 1000L;
-
+    //Transferer 有两个内部实现类，是因为构造 SynchronousQueue 的时候，我们可以指定公平策略。
+    // 公平模式意味着，所有的读写线程都遵守先来后到，FIFO 嘛，对应 TransferQueue。而非公平模式则对应 TransferStack。
     /** Dual stack */
     static final class TransferStack<E> extends Transferer<E> {
         /*
@@ -535,9 +547,12 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
 
         /** Node class for TransferQueue. */
         static final class QNode {
+            // 可以看出来，等待队列是单向链表
             volatile QNode next;          // next node in queue
             volatile Object item;         // CAS'ed to or from null
+            // 将线程对象保存在这里，用于挂起和唤醒
             volatile Thread waiter;       // to control park/unpark
+            // 用于判断是写线程节点(isData == true)，还是读线程节点
             final boolean isData;
 
             QNode(Object item, boolean isData) {
@@ -675,12 +690,16 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
                 QNode h = head;
                 if (t == null || h == null)         // saw uninitialized value
                     continue;                       // spin
-
+                // 队列空，或队列中节点类型和当前节点一致，
+                // 即我们说的第一种情况，将节点入队即可。读者要想着这块 if 里面方法其实就是入队
                 if (h == t || t.isData == isData) { // empty or same-mode
                     QNode tn = t.next;
                     if (t != tail)                  // inconsistent read
+                        // t != tail 说明刚刚有节点入队，continue 即可
                         continue;
                     if (tn != null) {               // lagging tail
+                        // 有其他节点入队，但是 tail 还是指向原来的，此时设置 tail 即可
+                        // 这个方法就是：如果 tail 此时为 t 的话，设置为 tn
                         advanceTail(t, tn);
                         continue;
                     }
@@ -688,11 +707,14 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
                         return null;
                     if (s == null)
                         s = new QNode(e, isData);
+                    // 将当前节点，插入到 tail 的后面
                     if (!t.casNext(null, s))        // failed to link in
                         continue;
-
+                    // 将当前节点设置为新的 tail
                     advanceTail(t, s);              // swing tail and wait
+                    // 看到这里，请读者先往下滑到这个方法，看完了以后再回来这里，思路也就不会断了
                     Object x = awaitFulfill(s, e, timed, nanos);
+                    // 到这里，说明之前入队的线程被唤醒了，准备往下执行
                     if (x == s) {                   // wait was cancelled
                         clean(t, s);
                         return null;
@@ -705,7 +727,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
                         s.waiter = null;
                     }
                     return (x != null) ? (E)x : e;
-
+                // 这里的 else 分支就是上面说的第二种情况，有相应的读或写相匹配的情况
                 } else {                            // complementary-mode
                     QNode m = h.next;               // node to fulfill
                     if (t != tail || m == null || h != head)
@@ -735,18 +757,24 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
          * @param nanos timeout value
          * @return matched item, or s if cancelled
          */
+        // 自旋或阻塞，直到满足条件，这个方法返回
         Object awaitFulfill(QNode s, E e, boolean timed, long nanos) {
             /* Same idea as TransferStack.awaitFulfill */
             final long deadline = timed ? System.nanoTime() + nanos : 0L;
             Thread w = Thread.currentThread();
+            // 判断需要自旋的次数，
             int spins = ((head.next == s) ?
                          (timed ? maxTimedSpins : maxUntimedSpins) : 0);
             for (;;) {
+                // 如果被中断了，那么取消这个节点
                 if (w.isInterrupted())
+                    // 就是将当前节点 s 中的 item 属性设置为 this
                     s.tryCancel(e);
                 Object x = s.item;
+                // 这里是这个方法的唯一的出口
                 if (x != e)
                     return x;
+                // 如果需要，检测是否超时
                 if (timed) {
                     nanos = deadline - System.nanoTime();
                     if (nanos <= 0L) {
@@ -756,10 +784,14 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
                 }
                 if (spins > 0)
                     --spins;
+                // 如果自旋达到了最大的次数，那么检测
                 else if (s.waiter == null)
                     s.waiter = w;
+                // 如果自旋到了最大的次数，那么线程挂起，等待唤醒
                 else if (!timed)
                     LockSupport.park(this);
+                // spinForTimeoutThreshold 这个之前讲 AQS 的时候其实也说过，剩余时间小于这个阈值的时候，就
+                // 不要进行挂起了，自旋的性能会比较好
                 else if (nanos > spinForTimeoutThreshold)
                     LockSupport.parkNanos(this, nanos);
             }
@@ -861,6 +893,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      * @param fair if true, waiting threads contend in FIFO order for
      *        access; otherwise the order is unspecified.
      */
+    // 构造时，我们可以指定公平模式还是非公平模式，区别之后再说
     public SynchronousQueue(boolean fair) {
         transferer = fair ? new TransferQueue<E>() : new TransferStack<E>();
     }
@@ -874,6 +907,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      */
     public void put(E e) throws InterruptedException {
         if (e == null) throw new NullPointerException();
+        // 写入值
         if (transferer.transfer(e, false, 0) == null) {
             Thread.interrupted();
             throw new InterruptedException();
@@ -920,6 +954,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      * @return the head of this queue
      * @throws InterruptedException {@inheritDoc}
      */
+    // 读取值并移除
     public E take() throws InterruptedException {
         E e = transferer.transfer(null, false, 0);
         if (e != null)

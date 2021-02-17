@@ -50,6 +50,12 @@ import java.util.Spliterator;
 import java.util.function.Consumer;
 
 /**
+ * =============================================================================
+ * 一个无界队列，使用的排序规则与PriorityQueue相同，并且提供了阻塞式的元素获取操作
+ * 简单地说，它就是 PriorityQueue 的线程安全版本。不可以插入 null 值，同时，插入
+ * 队列的对象必须是可比较大小的（comparable），否则报 ClassCastException 异常。
+ * 它的插入操作 put 方法不会 block，因为它是无界队列（take 方法在队列为空的时候会阻塞）。
+ * ============================================================================
  * An unbounded {@linkplain BlockingQueue blocking queue} that uses
  * the same ordering rules as class {@link PriorityQueue} and supplies
  * blocking retrieval operations.  While this queue is logically
@@ -59,6 +65,13 @@ import java.util.function.Consumer;
  * Comparable natural ordering} also does not permit insertion of
  * non-comparable objects (doing so results in
  * {@code ClassCastException}).
+ *
+ * ===========================================
+ * 此类实现了 Collection 和 Iterator 接口中的所有接口方法，对其对象进行迭代并遍历时，不能保证有序性。
+ * 如果你想要实现有序遍历，建议采用 Arrays.sort(queue.toArray()) 进行处理。PriorityBlockingQueue
+ * 提供了 drainTo 方法用于将部分或全部元素有序地填充（准确说是转移，会删除原队列中的元素）到另一个集合中。
+ * 还有一个需要说明的是，如果两个对象的优先级相同（compare 方法返回 0），此队列并不保证它们之间的顺序。
+ * ===========================================
  *
  * <p>This class and its iterator implement all of the
  * <em>optional</em> methods of the {@link Collection} and {@link
@@ -129,6 +142,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Default array capacity.
      */
+    // 构造方法中，如果不指定大小的话，默认大小为 11
     private static final int DEFAULT_INITIAL_CAPACITY = 11;
 
     /**
@@ -137,9 +151,17 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * Attempts to allocate larger arrays may result in
      * OutOfMemoryError: Requested array size exceeds VM limit
      */
+    // 数组的最大容量
     private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
     /**
+     * ==================================
+     * 优先队列内部是一个平衡二叉堆，且默认是小顶堆
+     * 二叉堆：一颗完全二叉树，它非常适合用数组进行存储，对于数组中的元素 a[i]，
+     * 其左子节点为 a[2*i+1]，其右子节点为 a[2*i + 2]，其父节点为 a[(i-1)/2]，其堆序性质为，
+     * 每个节点的值都小于其左右子节点的值。二叉堆中最小的值就是根节点，但是删除根节点是比较麻烦的，因为需要调整树。
+     * ====================================
+     *
      * Priority queue represented as a balanced binary heap: the two
      * children of queue[n] are queue[2*n+1] and queue[2*(n+1)].  The
      * priority queue is ordered by comparator, or by the elements'
@@ -147,32 +169,39 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * heap and each descendant d of n, n <= d.  The element with the
      * lowest value is in queue[0], assuming the queue is nonempty.
      */
+    // 这个就是存放数据的数组
     private transient Object[] queue;
 
     /**
      * The number of elements in the priority queue.
      */
+    // 队列当前大小
     private transient int size;
 
     /**
      * The comparator, or null if priority queue uses elements'
      * natural ordering.
      */
+    // 大小比较器，如果按照自然序排序，那么此属性可设置为 null
     private transient Comparator<? super E> comparator;
 
     /**
      * Lock used for all public operations
      */
+    // 并发控制所用的锁，所有的 public 且涉及到线程安全的方法，都必须先获取到这个锁
     private final ReentrantLock lock;
 
     /**
      * Condition for blocking when empty
      */
+    // 这个很好理解，其实例由上面的 lock 属性创建
     private final Condition notEmpty;
 
     /**
      * Spinlock for allocation, acquired via CAS.
      */
+    // 这个也是用于锁，用于数组扩容的时候，需要先获取到这个锁，才能进行扩容操作
+    // 其使用 CAS 操作
     private transient volatile int allocationSpinLock;
 
     /**
@@ -180,6 +209,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * to maintain compatibility with previous versions
      * of this class. Non-null only during serialization/deserialization.
      */
+    // 用于序列化和反序列化的时候用，对于 PriorityBlockingQueue 我们应该比较少使用到序列化
     private PriorityQueue<E> q;
 
     /**
@@ -187,6 +217,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * initial capacity (11) that orders its elements according to
      * their {@linkplain Comparable natural ordering}.
      */
+    // 默认构造方法，采用默认值(11)来进行初始化
     public PriorityBlockingQueue() {
         this(DEFAULT_INITIAL_CAPACITY, null);
     }
@@ -200,6 +231,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * @throws IllegalArgumentException if {@code initialCapacity} is less
      *         than 1
      */
+    // 指定数组的初始大小
     public PriorityBlockingQueue(int initialCapacity) {
         this(initialCapacity, null);
     }
@@ -216,6 +248,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * @throws IllegalArgumentException if {@code initialCapacity} is less
      *         than 1
      */
+    // 指定比较器
     public PriorityBlockingQueue(int initialCapacity,
                                  Comparator<? super E> comparator) {
         if (initialCapacity < 1)
@@ -242,6 +275,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified collection or any
      *         of its elements are null
      */
+    // 在构造方法中就先填充指定的集合中的元素
     public PriorityBlockingQueue(Collection<? extends E> c) {
         this.lock = new ReentrantLock();
         this.notEmpty = lock.newCondition();
@@ -286,30 +320,42 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * @param oldCap the length of the array
      */
     private void tryGrow(Object[] array, int oldCap) {
+        // 这边做了释放锁的操作
         lock.unlock(); // must release and then re-acquire main lock
         Object[] newArray = null;
+        // 用 CAS 操作将 allocationSpinLock 由 0 变为 1，也算是获取锁
         if (allocationSpinLock == 0 &&
             UNSAFE.compareAndSwapInt(this, allocationSpinLockOffset,
                                      0, 1)) {
             try {
+                // 如果节点个数小于 64，那么增加的 oldCap + 2 的容量
+                // 如果节点数大于等于 64，那么增加 oldCap 的一半
+                // 所以节点数较小时，增长得快一些
                 int newCap = oldCap + ((oldCap < 64) ?
                                        (oldCap + 2) : // grow faster if small
                                        (oldCap >> 1));
+                // 这里有可能溢出
                 if (newCap - MAX_ARRAY_SIZE > 0) {    // possible overflow
                     int minCap = oldCap + 1;
                     if (minCap < 0 || minCap > MAX_ARRAY_SIZE)
                         throw new OutOfMemoryError();
                     newCap = MAX_ARRAY_SIZE;
                 }
+                // 如果 queue != array，那么说明有其他线程给 queue 分配了其他的空间
                 if (newCap > oldCap && queue == array)
+                    // 分配一个新的大数组
                     newArray = new Object[newCap];
             } finally {
+                // 重置，也就是释放锁
                 allocationSpinLock = 0;
             }
         }
+        // 如果有其他的线程也在做扩容的操作
         if (newArray == null) // back off if another thread is allocating
             Thread.yield();
+        // 重新获取锁
         lock.lock();
+        // 将原来数组中的元素复制到新分配的大数组中
         if (newArray != null && queue == array) {
             queue = newArray;
             System.arraycopy(array, 0, newArray, 0, oldCap);
@@ -325,8 +371,11 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
             return null;
         else {
             Object[] array = queue;
+            // 队头，用于返回
             E result = (E) array[0];
+            // 队尾元素先取出
             E x = (E) array[n];
+            // 队尾置空
             array[n] = null;
             Comparator<? super E> cmp = comparator;
             if (cmp == null)
@@ -353,9 +402,11 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * @param x the item to insert
      * @param array the heap array
      */
+    // 这个方法就是将数据 x 插入到数组 array 的位置 k 处，然后再调整树
     private static <T> void siftUpComparable(int k, T x, Object[] array) {
         Comparable<? super T> key = (Comparable<? super T>) x;
         while (k > 0) {
+            // 二叉堆中 a[k] 节点的父节点位置
             int parent = (k - 1) >>> 1;
             Object e = array[parent];
             if (key.compareTo((T) e) >= 0)
@@ -393,6 +444,8 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
                                                int n) {
         if (n > 0) {
             Comparable<? super T> key = (Comparable<? super T>)x;
+            // 这里得到的 half 肯定是非叶节点
+            // a[n] 是最后一个元素，其父节点是 a[(n-1)/2]。所以 n >>> 1 代表的节点肯定不是叶子节点
             int half = n >>> 1;           // loop while a non-leaf
             while (k < half) {
                 int child = (k << 1) + 1; // assume left child is least
@@ -478,18 +531,23 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         if (e == null)
             throw new NullPointerException();
         final ReentrantLock lock = this.lock;
+        // 首先获取到独占锁
         lock.lock();
         int n, cap;
         Object[] array;
+        // 如果当前队列中的元素个数 >= 数组的大小，那么需要扩容了
         while ((n = size) >= (cap = (array = queue).length))
             tryGrow(array, cap);
         try {
             Comparator<? super E> cmp = comparator;
+            // 节点添加到二叉堆中
             if (cmp == null)
                 siftUpComparable(n, e, array);
             else
                 siftUpUsingComparator(n, e, array, cmp);
+            // 更新 size
             size = n + 1;
+            // 唤醒等待的读线程
             notEmpty.signal();
         } finally {
             lock.unlock();
@@ -500,7 +558,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Inserts the specified element into this priority queue.
      * As the queue is unbounded, this method will never block.
-     *
+     * 因为是无界队列，所以不会被阻塞
      * @param e the element to add
      * @throws ClassCastException if the specified element cannot be compared
      *         with elements currently in the priority queue according to the
@@ -508,6 +566,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public void put(E e) {
+        // 直接调用 offer 方法，因为前面我们也说了，在这里，put 方法不会阻塞
         offer(e); // never need to block
     }
 
@@ -542,9 +601,11 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
 
     public E take() throws InterruptedException {
         final ReentrantLock lock = this.lock;
+        // 独占锁
         lock.lockInterruptibly();
         E result;
         try {
+            // dequeue 出队
             while ( (result = dequeue()) == null)
                 notEmpty.await();
         } finally {

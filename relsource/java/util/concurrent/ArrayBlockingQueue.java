@@ -45,6 +45,11 @@ import java.util.Spliterators;
 import java.util.Spliterator;
 
 /**
+ * =============================================================================
+ * 一个底层通过数组实现的有界的先进先出队列，添加元素会添加在队列尾部，获取元素会先从头部获取，同理
+ * 队列头部元素是入队时间最久的，尾部是最新入队的元素
+ * =============================================================================
+ *
  * A bounded {@linkplain BlockingQueue blocking queue} backed by an
  * array.  This queue orders elements FIFO (first-in-first-out).  The
  * <em>head</em> of the queue is that element that has been on the
@@ -53,6 +58,10 @@ import java.util.Spliterator;
  * are inserted at the tail of the queue, and the queue retrieval
  * operations obtain elements at the head of the queue.
  *
+ * ====================================================================
+ *这是一个经典的有界缓冲队列，一旦创建后大小不能改变，队列满了往里面添加元素会阻塞，队列空了从中获取元素会阻塞
+ * ====================================================================
+ *
  * <p>This is a classic &quot;bounded buffer&quot;, in which a
  * fixed-sized array holds elements inserted by producers and
  * extracted by consumers.  Once created, the capacity cannot be
@@ -60,12 +69,17 @@ import java.util.Spliterator;
  * will result in the operation blocking; attempts to {@code take} an
  * element from an empty queue will similarly block.
  *
+ * ==============================================
+ * 在等待生产者和消费者线程的时候，这个类支持可选的公平策略，默认情况下不保证公平，如果在创建的时候传入参数
+ * true，则保证线程获取元素先入先出的公平，公平会降低吞吐量但是减少了变化避免了饥饿
+ * ==============================================
+ *
  * <p>This class supports an optional fairness policy for ordering
  * waiting producer and consumer threads.  By default, this ordering
  * is not guaranteed. However, a queue constructed with fairness set
  * to {@code true} grants threads access in FIFO order. Fairness
  * generally decreases throughput but reduces variability and avoids
- * starvation.
+ * starvation（饥饿）.
  *
  * <p>This class and its iterator implement all of the
  * <em>optional</em> methods of the {@link Collection} and {@link
@@ -79,6 +93,11 @@ import java.util.Spliterator;
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
  */
+//ArrayBlockingQueue 实现并发同步的原理就是，读操作和写操作都需要获取到
+// AQS 独占锁才能进行操作。如果队列为空，这个时候读操作的线程进入到读线程队列排队，
+// 等待写线程写入新的元素，然后唤醒读线程队列的第一个等待线程。如果队列已满，
+// 这个时候写操作的线程进入到写线程队列排队，等待读线程将队列元素移除腾出空间，
+// 然后唤醒写线程队列的第一个等待线程。
 public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable {
 
@@ -91,22 +110,26 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     private static final long serialVersionUID = -817911632652898426L;
 
     /** The queued items */
+    // 用于存放元素的数组
     final Object[] items;
 
     /** items index for next take, poll, peek or remove */
+    // 下一次读取操作的位置
     int takeIndex;
 
     /** items index for next put, offer, or add */
+    // 下一次写入操作的位置
     int putIndex;
 
     /** Number of elements in the queue */
+    // 队列中的元素数量
     int count;
 
     /*
      * Concurrency control uses the classic two-condition algorithm
-     * found in any textbook.
+     * found in any textbook（教科书）.
      */
-
+    // 以下几个就是控制并发用的同步器
     /** Main lock guarding all access */
     final ReentrantLock lock;
 
